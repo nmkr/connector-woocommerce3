@@ -48,6 +48,9 @@ class CustomerOrderItem extends BaseController
         if ($pd < 4) {
             $pd = 4;
         }
+
+        $customerId = (int)$order->get_customer_id();
+        $customer = $customerId === 0 ? null : new \WC_Customer($customerId);
         
         /** @var \WC_Order_Item_Product $item */
         foreach ($order->get_items() as $item) {
@@ -76,16 +79,12 @@ class CustomerOrderItem extends BaseController
                 
                 if ($product instanceof \WC_Product_Variation) {
                     switch (\get_option(\JtlConnectorAdmin::OPTIONS_VARIATION_NAME_FORMAT)) {
+                        case 'space_parent':
                         case 'space':
                             $format = '%s %s';
                             break;
-                        case 'brackets':
-                            $format = '%s (%s)';
-                            break;
-                        case 'space_parent':
-                            $format = '%s %s';
-                            break;
                         case 'brackets_parent':
+                        case 'brackets':
                             $format = '%s (%s)';
                             break;
                         default:
@@ -97,27 +96,25 @@ class CustomerOrderItem extends BaseController
                         \wc_get_formatted_variation($product, true)));
                 }
             }
+
+            $vat = 0;
+            $vatRate = \WC_Tax::get_rates($item->get_tax_class(), $customer);
+
+            if (is_array($vatRate) && count($vatRate) === 1) {
+                $vat = (double)end($vatRate)['rate'];
+            }
             
-            $tax = $order->get_item_tax($item); // the tax amount
-            
-            if ($tax === 0.0) {
+            if ($vat === 0.0) {
                 $priceNet = $priceGross = $order->get_item_subtotal($item, true, false);
             } else {
                 $priceNet = $order->get_item_subtotal($item, false, false);
                 $priceGross = $order->get_item_subtotal($item, true, true);
             }
-            
-            $vat = 0;
-            
-            if ($priceNet != $priceGross) {
+
+            if ($priceNet != $priceGross && $vat === 0) {
                 $vat = round(($priceGross * 100 / $priceNet) - 100, 1);
             }
-            
-            /*            $orderItem
-                            ->setVat($vat)
-                            ->setPrice(round($priceNet, self::PRICE_DECIMALS))
-                            ->setPriceGross(round($priceGross, self::PRICE_DECIMALS));*/
-            
+
             $orderItem
                 ->setVat($vat)
                 ->setPrice((float)Util::getNetPriceCutted($priceNet, $pd))
