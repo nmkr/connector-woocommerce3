@@ -51,7 +51,7 @@ class CustomerOrderItem extends BaseController
 
         $customerId = (int)$order->get_customer_id();
         $customer = $customerId === 0 ? null : new \WC_Customer($customerId);
-        
+
         /** @var \WC_Order_Item_Product $item */
         foreach ($order->get_items() as $item) {
             $orderItem = (new CustomerOrderItemModel())
@@ -114,7 +114,12 @@ class CustomerOrderItem extends BaseController
             if ($priceNet != $priceGross && $vat === 0) {
                 $vat = round(($priceGross * 100 / $priceNet) - 100, 2);
             }
-
+            
+            /*            $orderItem
+                            ->setVat($vat)
+                            ->setPrice(round($priceNet, self::PRICE_DECIMALS))
+                            ->setPriceGross(round($priceGross, self::PRICE_DECIMALS));*/
+            
             $orderItem
                 ->setVat($vat)
                 ->setPrice((float)Util::getNetPriceCutted($priceNet, $pd))
